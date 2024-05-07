@@ -5,6 +5,7 @@
 #include "stb_image.h"
 #include "shader.h"
 #include "camera.h"
+#include "shape.h"
 
 const unsigned int img_width = 1920; const unsigned int img_height = 1080;
 Camera cam(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0), -90, 0, 4, 8, 16, 0.065f, 90, 120);
@@ -29,9 +30,6 @@ bool firstMouse = true;
 float deltaTime = 0;
 float lastFrame = 0;
 
-// Flashobj
-bool flashobjIsOn = false;
-
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, width, height);
 }
@@ -55,12 +53,6 @@ void mouseCallback(GLFWwindow *window, double posX, double posY) {
 
 void scrollCallback(GLFWwindow *window, double offsetX, double offsetY) {
     cam.processMouseScroll((float) offsetY);
-}
-
-void flashobjCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_F && action == GLFW_PRESS) {
-        flashobjIsOn = !flashobjIsOn;
-    }
 }
 
 void processInput(GLFWwindow *window) {
@@ -121,7 +113,6 @@ int main() {
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
     glfwSetCursorPosCallback(window, mouseCallback);
     glfwSetScrollCallback(window, scrollCallback);
-    glfwSetKeyCallback(window, flashobjCallback);
 
     if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;
@@ -137,57 +128,8 @@ int main() {
     // Object
     Shader objShader("shader/obj_vert.glsl", "shader/obj_frag.glsl");
 
-    float objVerts[] = {
-        -0.5, -0.5, 0.5,
-        -0.5, 0.5, 0.5,
-        0.5, 0.5, 0.5,
-        0.5, -0.5, 0.5,
-
-        -0.5, -0.5, -0.5,
-        -0.5, 0.5, -0.5,
-        0.5, 0.5, -0.5,
-        0.5, -0.5, -0.5,
-    };
-
-    unsigned int objIndices[] = {
-        0, 1, 2,
-        0, 2, 3,
-
-        4, 5, 6,
-        4, 6, 7,
-
-        0, 1, 5,
-        0, 5, 4,
-
-        3, 2, 6,
-        3, 6, 7,
-
-        0, 4, 7,
-        0, 7, 3,
-
-        1, 5, 6,
-        1, 6, 2,
-    };
-
-    unsigned int objVBO, objEBO, objVAO;
-
-    glGenVertexArrays(1, &objVAO);
-    glBindVertexArray(objVAO);
-
-    glGenBuffers(1, &objVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, objVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(objVerts), objVerts, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &objEBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, objEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(objIndices), objIndices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
-    glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    Shader objShader("shader/obj_vert.glsl", "shader/obj_frag.glsl");
+    glm::vec3 objOffset(0, 0, -20);
+    Cube obj(glm::vec3(0), 4, glm::vec4(0));
 
     glEnable(GL_DEPTH_TEST);
     while(!glfwWindowShouldClose(window)) {
@@ -203,30 +145,29 @@ int main() {
         glm::mat4 proj = glm::perspective(glm::radians(cam.fov), (float) img_width / img_height, 0.1f, 100.0f);
         glm::mat4 model = glm::mat4(1.0);
 
-        //  obj Render
+        // obj Render
         objShader.use();
-
-        model = glm::mat4(1.0);
-        model = glm::translate(model, objPos);
-        model = glm::scale(model, objSize);
-
-        glm::vec3 objColor(0.8f, 0.5f, 0.6f);
-        objShader.setVec3("objColor", objColor);
 
         objShader.setMat4("view", view);
         objShader.setMat4("proj", proj);
+        objShader.setMat4("model", model);
 
-        glBindVertexArray(objVAO);
-        for (uint i = 0; i != 4; i++) {
-            glm::mat4 model = glm::mat4(1.0f);
 
-            model = glm::translate(model, objPositions[i]);
 
-            model = glm::scale(model, objSize);
-
-            objShader.setMat4("model", model);
-            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+            obj.draw(objShader);
         }
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+            std::cout << "left" << '\n';
+        } else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+            std::cout << "right" << '\n';
+        }
+        
+        model = glm::mat4(1.0);
+        model = glm::translate(model, cam.position + objOffset);
+
+        glm::vec3 objColor(0.8f, 0.5f, 0.6f);
+        objShader.setVec3("objColor", objColor);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -235,11 +176,7 @@ int main() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    glDeleteVertexArrays(1, &objVAO);
-    glDeleteBuffers(1, &objVBO);
-    glDeleteBuffers(1, &objEBO);
-
-    objShader.clean();
+    obj.clean();
     objShader.clean();
 
     glfwTerminate();

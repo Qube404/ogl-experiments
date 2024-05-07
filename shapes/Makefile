@@ -2,7 +2,7 @@ com = g++
 std = -std=c++17
 flags = -ggdb
 gl = -lGL
-files = shader.cpp stb_image.cpp camera.cpp model.cpp
+files = shader.cpp stb_image.cpp camera.cpp shape.cpp
 warnings = -Wall -Weffc++ -Wextra -Wconversion -Wsign-conversion
 
 output: main.cpp
