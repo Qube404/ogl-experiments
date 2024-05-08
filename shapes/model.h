@@ -6,6 +6,14 @@
 
 #include "shader.h"
 
+enum Shape {
+    Square,
+    Sphere,
+    Cylinder,
+    Plane,
+    Cone
+};
+
 struct Vertex {
     glm::vec3 position;
     glm::vec3 normal;
@@ -49,23 +57,3 @@ public:
 private:
     std::vector<Mesh> meshes;
 };
-
-/*
-class Model {
-public:
-    Model();
-    Model(std::string path);
-    Model(std::vector<Mesh> meshes);
-
-    void draw(Shader &shader);
-
-private:
-    std::vector<Mesh> meshes;
-    std::string dir;
-
-    void loadModel(std::string path);
-    void processNode(aiNode *node, const aiScene *scene);
-    Mesh processMesh(aiMesh *mesh, const aiScene *scene);
-    std::vector<Texture> loadMaterialTextures(aiMaterial *mat, aiTextureType type);
-};
-*/

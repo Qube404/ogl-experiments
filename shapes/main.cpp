@@ -21,10 +21,13 @@ glm::vec4 bg = editorBackground;
 float playerHeight = 7;
 float playerSize = 1;
 
+short int shapes = 1;
+
 // Mouse Data
 float lastX = img_width / 2.0;
 float lastY = img_height / 2.0;
 bool firstMouse = true;
+bool mouseLeftPressed = false;
 
 // Frame Data
 float deltaTime = 0;
@@ -56,6 +59,7 @@ void scrollCallback(GLFWwindow *window, double offsetX, double offsetY) {
 }
 
 void processInput(GLFWwindow *window) {
+    // Movement
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
     }
@@ -85,12 +89,29 @@ void processInput(GLFWwindow *window) {
         cam.processKeyboard(CameraMovement::LEFT, mode, deltaTime);
     }
 
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
         cam.processKeyboard(CameraMovement::DOWN, mode, deltaTime);
     }
 
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
         cam.processKeyboard(CameraMovement::UP, mode, deltaTime);
+    }
+
+    // Weapon Selection
+    if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
+        shapes = 1;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
+        shapes = 2;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
+        shapes = 3;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS) {
+        shapes = 4;
     }
 }
 
@@ -127,10 +148,23 @@ int main() {
 
     // Objects
     Shader objShader("shader/obj_vert.glsl", "shader/obj_frag.glsl");
-    float objOffset = 20;
+    float objOffset = 10;
 
-    std::vector<Model> models;
+    Model cube("shapes/cube.obj");
+    Model sphere("shapes/sphere.obj");
+    Model cylinder("shapes/cylinder.obj");
+    Model plane("shapes/plane.obj");
+    Model cone("shapes/cone.obj");
+
+    // WORKING ON THIS
+    // Currently working on spawning different shapes by pressing different
+    // numbers and trying to use integers for boolean logic instead of making
+    // a bunch of separate bool variables.
+    std::vector<Shape> shapes;
     std::vector<glm::vec3> positions;
+
+    // Render Setup
+    bool mouseLeftFirst = true;
 
     // Render Loop
     glEnable(GL_DEPTH_TEST);
@@ -141,13 +175,14 @@ int main() {
 
         processInput(window);
 
-        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-            Model shape("shapes/cube.obj");
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && mouseLeftFirst == true) {
             glm::vec3 position(cam.position + (objOffset * cam.front));
-
-            models.push_back(shape);
             positions.push_back(position);
+
+            mouseLeftFirst = false;
         }
+
+        mouseLeftFirst = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE;
 
         glClearColor(bg.r, bg.g, bg.b, bg.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -162,12 +197,12 @@ int main() {
         objShader.setMat4("view", view);
         objShader.setMat4("proj", proj);
 
-        for (unsigned int i = 0; i != models.size(); i++) {
+        for (unsigned int i = 0; i != positions.size(); i++) {
             model = glm::translate(glm::mat4(1.0), positions[i]);
 
             objShader.setMat4("model", model);
 
-            models[i].draw(objShader);
+            cube.draw(objShader);
         }
 
         model = glm::mat4(1.0);
