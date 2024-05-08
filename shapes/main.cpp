@@ -125,7 +125,7 @@ int main() {
 
     stbi_set_flip_vertically_on_load(true);
 
-    // Object
+    // Objects
     Shader objShader("shader/obj_vert.glsl", "shader/obj_frag.glsl");
 
     glm::vec3 objOffset(0, 0, -20);
@@ -152,15 +152,8 @@ int main() {
         objShader.setMat4("proj", proj);
         objShader.setMat4("model", model);
 
-
-
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
             obj.draw(objShader);
-        }
-        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-            std::cout << "left" << '\n';
-        } else if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
-            std::cout << "right" << '\n';
         }
         
         model = glm::mat4(1.0);
