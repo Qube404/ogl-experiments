@@ -5,7 +5,7 @@
 #include "stb_image.h"
 #include "shader.h"
 #include "camera.h"
-#include "shape.h"
+#include "model.h"
 
 const unsigned int img_width = 1920; const unsigned int img_height = 1080;
 Camera cam(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0), -90, 0, 4, 8, 16, 0.065f, 90, 120);
@@ -127,10 +127,12 @@ int main() {
 
     // Objects
     Shader objShader("shader/obj_vert.glsl", "shader/obj_frag.glsl");
+    float objOffset = 20;
 
-    glm::vec3 objOffset(0, 0, -20);
-    Cube obj(glm::vec3(0), 4, glm::vec4(0));
+    std::vector<Model> models;
+    std::vector<glm::vec3> positions;
 
+    // Render Loop
     glEnable(GL_DEPTH_TEST);
     while(!glfwWindowShouldClose(window)) {
         float currentFrame = (float) glfwGetTime();
@@ -138,6 +140,15 @@ int main() {
         lastFrame = currentFrame;
 
         processInput(window);
+
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+            Model shape("shapes/cube.obj");
+            glm::vec3 position(cam.position + (objOffset * cam.front));
+
+            models.push_back(shape);
+            positions.push_back(position);
+        }
+
         glClearColor(bg.r, bg.g, bg.b, bg.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -150,17 +161,17 @@ int main() {
 
         objShader.setMat4("view", view);
         objShader.setMat4("proj", proj);
-        objShader.setMat4("model", model);
 
-        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-            obj.draw(objShader);
+        for (unsigned int i = 0; i != models.size(); i++) {
+            model = glm::translate(glm::mat4(1.0), positions[i]);
+
+            objShader.setMat4("model", model);
+
+            models[i].draw(objShader);
         }
-        
+
         model = glm::mat4(1.0);
         model = glm::translate(model, cam.position + objOffset);
-
-        glm::vec3 objColor(0.8f, 0.5f, 0.6f);
-        objShader.setVec3("objColor", objColor);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -169,7 +180,6 @@ int main() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    obj.clean();
     objShader.clean();
 
     glfwTerminate();
