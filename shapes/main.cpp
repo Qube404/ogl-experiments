@@ -226,6 +226,7 @@ int main() {
 
         historyEmpty = history.size() == 0;
 
+        // Rendering
         glClearColor(bg.r, bg.g, bg.b, bg.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -233,7 +234,6 @@ int main() {
         glm::mat4 proj = glm::perspective(glm::radians(cam.fov), (float) img_width / img_height, 0.1f, 100.0f);
         glm::mat4 model = glm::mat4(1.0);
 
-        // obj Render
         objShader.use();
 
         objShader.setMat4("view", view);
