@@ -27,8 +27,12 @@ short int shape = Shape::Cube;
 float lastX = img_width / 2.0;
 float lastY = img_height / 2.0;
 bool firstMouse = true;
-bool mouseLeftPressed = false;
+
+// Key Press Data
 bool mouseLeftFirst = true;
+bool zKeyFirst = true;
+bool xKeyFirst = true;
+bool historyEmpty = true;
 
 // Frame Data
 float deltaTime = 0;
@@ -162,6 +166,7 @@ int main() {
     Model cone("shapes/cone.obj");
 
     std::vector<Model> shapes;
+    std::vector<Model> history;
 
     // Render Loop
     glEnable(GL_DEPTH_TEST);
@@ -172,6 +177,7 @@ int main() {
 
         processInput(window);
 
+        // Placing Shapes
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && mouseLeftFirst == true) {
             Model newShape;
             if (shape == Shape::Cube) {
@@ -189,10 +195,36 @@ int main() {
             newShape.scale = 1.f;
             shapes.push_back(newShape);
 
+            if (historyEmpty == false) {
+                history.clear();
+            }
+
             mouseLeftFirst = false;
         }
-
         mouseLeftFirst = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE;
+
+        // Undo & Redo
+        if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS & zKeyFirst == true) {
+            if (shapes.size() != 0) {
+                history.push_back(shapes[shapes.size() - 1]);
+                shapes.pop_back();
+            }
+
+            zKeyFirst = false;
+        }
+        zKeyFirst = glfwGetKey(window, GLFW_KEY_Z) == GLFW_RELEASE;
+
+        if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS & xKeyFirst == true) {
+            if (history.size() != 0) {
+                shapes.push_back(history[history.size() - 1]);
+                history.pop_back();
+            }
+
+            xKeyFirst = false;
+        }
+        xKeyFirst = glfwGetKey(window, GLFW_KEY_X) == GLFW_RELEASE;
+
+        historyEmpty = history.size() == 0;
 
         glClearColor(bg.r, bg.g, bg.b, bg.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -208,7 +240,7 @@ int main() {
         objShader.setMat4("proj", proj);
 
         for (unsigned int i = 0; i != shapes.size(); i++) {
-            model = glm::translate(model, shapes[i].position);
+            model = glm::translate(glm::mat4(1.f), shapes[i].position);
             objShader.setMat4("model", model);
 
             shapes[i].draw(objShader);
