@@ -21,13 +21,14 @@ glm::vec4 bg = editorBackground;
 float playerHeight = 7;
 float playerSize = 1;
 
-short int shapes = 1;
+short int shape = Shape::Cube;
 
 // Mouse Data
 float lastX = img_width / 2.0;
 float lastY = img_height / 2.0;
 bool firstMouse = true;
 bool mouseLeftPressed = false;
+bool mouseLeftFirst = true;
 
 // Frame Data
 float deltaTime = 0;
@@ -99,19 +100,23 @@ void processInput(GLFWwindow *window) {
 
     // Weapon Selection
     if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
-        shapes = 1;
+        shape = Shape::Cube;
     }
 
     if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
-        shapes = 2;
+        shape = Shape::Sphere;
     }
 
     if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
-        shapes = 3;
+        shape = Shape::Cylinder;
     }
 
     if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS) {
-        shapes = 4;
+        shape = Shape::Plane;
+    }
+    
+    if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS) {
+        shape = Shape::Cone;
     }
 }
 
@@ -160,11 +165,8 @@ int main() {
     // Currently working on spawning different shapes by pressing different
     // numbers and trying to use integers for boolean logic instead of making
     // a bunch of separate bool variables.
-    std::vector<Shape> shapes;
+    std::vector<Model> shapes;
     std::vector<glm::vec3> positions;
-
-    // Render Setup
-    bool mouseLeftFirst = true;
 
     // Render Loop
     glEnable(GL_DEPTH_TEST);
@@ -202,7 +204,17 @@ int main() {
 
             objShader.setMat4("model", model);
 
-            cube.draw(objShader);
+            if (shape == Shape::Cube) {
+                cube.draw(objShader);
+            } else if (shape == Shape::Sphere) {
+                sphere.draw(objShader);
+            } else if (shape == Shape::Cylinder) {
+                cylinder.draw(objShader);
+            } else if (shape == Shape::Plane) {
+                plane.draw(objShader);
+            } else if (shape == Shape::Cone) {
+                cone.draw(objShader);
+            }
         }
 
         model = glm::mat4(1.0);

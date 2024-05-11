@@ -7,6 +7,7 @@
 #include "shader.h"
 
 enum Shape {
+    Cube,
     Square,
     Sphere,
     Cylinder,
