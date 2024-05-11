@@ -79,9 +79,11 @@ void Mesh::setupMesh() {
     glBindVertexArray(0);
 }
 
-Model::Model(): meshes() {}
+Model::Model(): meshes(), position(0.f), scale(1.f) {}
 
-Model::Model(std::vector<Mesh> meshes): meshes(meshes) {}
+Model::Model(std::vector<Mesh> meshes, glm::vec3 position, float scale): 
+    meshes(meshes), position(position), scale(scale) 
+{}
 
 unsigned int textureFromFile(std::string path, std::string dir) {
     unsigned int textureID;
@@ -222,7 +224,9 @@ void processNode(std::vector<Mesh> &meshes, aiNode *node, const aiScene *scene, 
     }
 }
 
-Model::Model(std::string path): meshes() {
+Model::Model(std::string path, glm::vec3 position, float scale): 
+    meshes(), position(position), scale(scale) 
+{
     Assimp::Importer importer;
     const aiScene *scene = importer.ReadFile(path, aiProcess_Triangulate | aiProcess_FlipUVs);
 

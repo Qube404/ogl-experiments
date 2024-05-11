@@ -161,12 +161,7 @@ int main() {
     Model plane("shapes/plane.obj");
     Model cone("shapes/cone.obj");
 
-    // WORKING ON THIS
-    // Currently working on spawning different shapes by pressing different
-    // numbers and trying to use integers for boolean logic instead of making
-    // a bunch of separate bool variables.
     std::vector<Model> shapes;
-    std::vector<glm::vec3> positions;
 
     // Render Loop
     glEnable(GL_DEPTH_TEST);
@@ -178,20 +173,21 @@ int main() {
         processInput(window);
 
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && mouseLeftFirst == true) {
-            glm::vec3 position(cam.position + (objOffset * cam.front));
-            positions.push_back(position);
-
+            Model newShape;
             if (shape == Shape::Cube) {
-                shapes.push_back(cube);
+                newShape = cube;
             } else if (shape == Shape::Sphere) {
-                shapes.push_back(sphere);
+                newShape = sphere;
             } else if (shape == Shape::Cylinder) {
-                shapes.push_back(cylinder);
+                newShape = cylinder;
             } else if (shape == Shape::Plane) {
-                shapes.push_back(plane);
+                newShape = plane;
             } else if (shape == Shape::Cone) {
-                shapes.push_back(cone);
+                newShape = cone;
             }
+            newShape.position = glm::vec3(cam.position + (objOffset * cam.front));
+            newShape.scale = 1.f;
+            shapes.push_back(newShape);
 
             mouseLeftFirst = false;
         }
@@ -212,14 +208,11 @@ int main() {
         objShader.setMat4("proj", proj);
 
         for (unsigned int i = 0; i != shapes.size(); i++) {
-            model = glm::translate(glm::mat4(1.0), positions[i]);
+            model = glm::translate(model, shapes[i].position);
             objShader.setMat4("model", model);
 
             shapes[i].draw(objShader);
         }
-
-        model = glm::mat4(1.0);
-        model = glm::translate(model, cam.position + objOffset);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

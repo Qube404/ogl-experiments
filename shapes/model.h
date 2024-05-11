@@ -49,12 +49,14 @@ private:
 
 class Model {
 public:
+    glm::vec3 position;
+    float scale;
+
     Model();
-    Model(std::vector<Mesh> meshes);
-    Model(std::string path);
+    Model(std::vector<Mesh> meshes, glm::vec3 position = glm::vec3(0.f), float scale = 0.f);
+    Model(std::string path, glm::vec3 position = glm::vec3(0.f), float scale = 0.f);
 
     void draw(Shader &shader);
-
 private:
     std::vector<Mesh> meshes;
 };
