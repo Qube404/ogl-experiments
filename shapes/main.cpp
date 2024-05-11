@@ -181,6 +181,18 @@ int main() {
             glm::vec3 position(cam.position + (objOffset * cam.front));
             positions.push_back(position);
 
+            if (shape == Shape::Cube) {
+                shapes.push_back(cube);
+            } else if (shape == Shape::Sphere) {
+                shapes.push_back(sphere);
+            } else if (shape == Shape::Cylinder) {
+                shapes.push_back(cylinder);
+            } else if (shape == Shape::Plane) {
+                shapes.push_back(plane);
+            } else if (shape == Shape::Cone) {
+                shapes.push_back(cone);
+            }
+
             mouseLeftFirst = false;
         }
 
@@ -199,22 +211,11 @@ int main() {
         objShader.setMat4("view", view);
         objShader.setMat4("proj", proj);
 
-        for (unsigned int i = 0; i != positions.size(); i++) {
+        for (unsigned int i = 0; i != shapes.size(); i++) {
             model = glm::translate(glm::mat4(1.0), positions[i]);
-
             objShader.setMat4("model", model);
 
-            if (shape == Shape::Cube) {
-                cube.draw(objShader);
-            } else if (shape == Shape::Sphere) {
-                sphere.draw(objShader);
-            } else if (shape == Shape::Cylinder) {
-                cylinder.draw(objShader);
-            } else if (shape == Shape::Plane) {
-                plane.draw(objShader);
-            } else if (shape == Shape::Cone) {
-                cone.draw(objShader);
-            }
+            shapes[i].draw(objShader);
         }
 
         model = glm::mat4(1.0);
