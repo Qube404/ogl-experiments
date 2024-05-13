@@ -5,6 +5,7 @@
 #include "stb_image.h"
 #include "shader.h"
 #include "camera.h"
+#include "model.h"
 
 const unsigned int img_width = 1920; const unsigned int img_height = 1080;
 Camera cam(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0), -90, 0, 4, 8, 16, 0.065f, 90, 120);
@@ -20,17 +21,22 @@ glm::vec4 bg = editorBackground;
 float playerHeight = 7;
 float playerSize = 1;
 
+short int shape = Shape::Cube;
+
 // Mouse Data
 float lastX = img_width / 2.0;
 float lastY = img_height / 2.0;
 bool firstMouse = true;
 
+// Key Press Data
+bool mouseLeftFirst = true;
+bool zKeyFirst = true;
+bool xKeyFirst = true;
+bool historyEmpty = true;
+
 // Frame Data
 float deltaTime = 0;
 float lastFrame = 0;
-
-// Flashlight
-bool flashlightIsOn = false;
 
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -57,13 +63,8 @@ void scrollCallback(GLFWwindow *window, double offsetX, double offsetY) {
     cam.processMouseScroll((float) offsetY);
 }
 
-void flashlightCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_F && action == GLFW_PRESS) {
-        flashlightIsOn = !flashlightIsOn;
-    }
-}
-
 void processInput(GLFWwindow *window) {
+    // Movement
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
     }
@@ -93,12 +94,33 @@ void processInput(GLFWwindow *window) {
         cam.processKeyboard(CameraMovement::LEFT, mode, deltaTime);
     }
 
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
         cam.processKeyboard(CameraMovement::DOWN, mode, deltaTime);
     }
 
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
         cam.processKeyboard(CameraMovement::UP, mode, deltaTime);
+    }
+
+    // Weapon Selection
+    if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
+        shape = Shape::Cube;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
+        shape = Shape::Sphere;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
+        shape = Shape::Cylinder;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS) {
+        shape = Shape::Plane;
+    }
+    
+    if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS) {
+        shape = Shape::Cone;
     }
 }
 
@@ -121,7 +143,6 @@ int main() {
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
     glfwSetCursorPosCallback(window, mouseCallback);
     glfwSetScrollCallback(window, scrollCallback);
-    glfwSetKeyCallback(window, flashlightCallback);
 
     if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
         std::cout << "Failed to initialize GLAD" << std::endl;
@@ -132,100 +153,140 @@ int main() {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glViewport(0, 0, img_width, img_height);
 
+    // Load Texture
     stbi_set_flip_vertically_on_load(true);
 
-    // Object
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+
+    const char* path = "shader/container_diffuse.png";
+    int width, height, nrChannels;
+    unsigned char *data = stbi_load(path, &width, &height, &nrChannels, 0);
+    if (data) {
+        GLenum format = GL_FALSE;
+        switch (nrChannels) {
+            case 1:
+                format = GL_RED;
+                break;
+            case 3:
+                format = GL_RGB;
+                break;
+            case 4:
+                format = GL_RGBA;
+                break;
+        }
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, (GLint) format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    } else {
+        std::cout << "Failed to load texture at path: " << path << std::endl;
+    }
+    stbi_image_free(data);
+
+    // Objects
     Shader objShader("shader/obj_vert.glsl", "shader/obj_frag.glsl");
+    float objOffset = 10;
 
-    float lightVerts[] = {
-        -0.5, -0.5, 0.5,
-        -0.5, 0.5, 0.5,
-        0.5, 0.5, 0.5,
-        0.5, -0.5, 0.5,
+    Model cube("shapes/cube.obj");
+    Model sphere("shapes/sphere.obj");
+    Model cylinder("shapes/cylinder.obj");
+    Model plane("shapes/plane.obj");
+    Model cone("shapes/cone.obj");
 
-        -0.5, -0.5, -0.5,
-        -0.5, 0.5, -0.5,
-        0.5, 0.5, -0.5,
-        0.5, -0.5, -0.5,
-    };
+    std::vector<Model> shapes;
+    std::vector<Model> history;
 
-    unsigned int lightIndices[] = {
-        0, 1, 2,
-        0, 2, 3,
-
-        4, 5, 6,
-        4, 6, 7,
-
-        0, 1, 5,
-        0, 5, 4,
-
-        3, 2, 6,
-        3, 6, 7,
-
-        0, 4, 7,
-        0, 7, 3,
-
-        1, 5, 6,
-        1, 6, 2,
-    };
-
-    unsigned int lightVBO, lightEBO, lightVAO;
-
-    glGenVertexArrays(1, &lightVAO);
-    glBindVertexArray(lightVAO);
-
-    glGenBuffers(1, &lightVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, lightVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(lightVerts), lightVerts, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &lightEBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lightEBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(lightIndices), lightIndices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*) 0);
-    glEnableVertexAttribArray(0);
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    Shader lightShader("shader/light_vert.glsl", "shader/light_frag.glsl");
-
-    glEnable(GL_DEPTH_TEST);
+    // Render Loop
+    glEnable(GL_DEPTH_TEST | GL_STENCIL_TEST);
     while(!glfwWindowShouldClose(window)) {
         float currentFrame = (float) glfwGetTime();
         deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
         processInput(window);
+
+        // Placing Shapes
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && mouseLeftFirst == true) {
+            Model newShape;
+            if (shape == Shape::Cube) {
+                newShape = cube;
+            } else if (shape == Shape::Sphere) {
+                newShape = sphere;
+            } else if (shape == Shape::Cylinder) {
+                newShape = cylinder;
+            } else if (shape == Shape::Plane) {
+                newShape = plane;
+            } else if (shape == Shape::Cone) {
+                newShape = cone;
+            }
+            newShape.position = glm::vec3(cam.position + (objOffset * cam.front));
+            newShape.scale = 1.f;
+            shapes.push_back(newShape);
+
+            if (historyEmpty == false) {
+                history.clear();
+            }
+
+            mouseLeftFirst = false;
+        }
+        mouseLeftFirst = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE;
+
+        // Undo & Redo
+        if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS & zKeyFirst == true) {
+            if (shapes.size() != 0) {
+                history.push_back(shapes[shapes.size() - 1]);
+                shapes.pop_back();
+            }
+
+            zKeyFirst = false;
+        }
+        zKeyFirst = glfwGetKey(window, GLFW_KEY_Z) == GLFW_RELEASE;
+
+        if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS & xKeyFirst == true) {
+            if (history.size() != 0) {
+                shapes.push_back(history[history.size() - 1]);
+                history.pop_back();
+            }
+
+            xKeyFirst = false;
+        }
+        xKeyFirst = glfwGetKey(window, GLFW_KEY_X) == GLFW_RELEASE;
+
+        historyEmpty = history.size() == 0;
+
+        // Rendering
         glClearColor(bg.r, bg.g, bg.b, bg.a);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0xFF);
 
         glm::mat4 view = cam.getViewMatrix();
         glm::mat4 proj = glm::perspective(glm::radians(cam.fov), (float) img_width / img_height, 0.1f, 100.0f);
         glm::mat4 model = glm::mat4(1.0);
 
-        //  Light Render
-        lightShader.use();
+        objShader.use();
 
-        model = glm::mat4(1.0);
-        model = glm::translate(model, lightPos);
-        model = glm::scale(model, lightSize);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        objShader.setInt("shapeTexture", 0);
 
-        glm::vec3 lightColor(0.8f, 0.5f, 0.6f);
-        lightShader.setVec3("lightColor", lightColor);
+        objShader.setMat4("view", view);
+        objShader.setMat4("proj", proj);
 
-        lightShader.setMat4("view", view);
-        lightShader.setMat4("proj", proj);
+        for (unsigned int i = 0; i != shapes.size(); i++) {
+            model = glm::translate(glm::mat4(1.f), shapes[i].position);
+            objShader.setMat4("model", model);
 
-        glBindVertexArray(lightVAO);
-        for (uint i = 0; i != 4; i++) {
-            glm::mat4 model = glm::mat4(1.0f);
-
-            model = glm::translate(model, lightPositions[i]);
-
-            model = glm::scale(model, lightSize);
-
-            lightShader.setMat4("model", model);
-            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+            shapes[i].draw(objShader);
         }
 
         glfwSwapBuffers(window);
@@ -235,12 +296,7 @@ int main() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    glDeleteVertexArrays(1, &lightVAO);
-    glDeleteBuffers(1, &lightVBO);
-    glDeleteBuffers(1, &lightEBO);
-
     objShader.clean();
-    lightShader.clean();
 
     glfwTerminate();
     return 0;
