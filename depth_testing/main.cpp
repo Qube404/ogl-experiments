@@ -30,13 +30,19 @@ bool firstMouse = true;
 
 // Key Press Data
 bool mouseLeftFirst = true;
+
 bool zKeyFirst = true;
 bool xKeyFirst = true;
+bool tKeyFirst = true;
+
 bool historyEmpty = true;
 
 // Frame Data
 float deltaTime = 0;
 float lastFrame = 0;
+
+// Rendering Data
+bool stencilTest = false;
 
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -191,7 +197,8 @@ int main() {
     stbi_image_free(data);
 
     // Objects
-    Shader objShader("shader/obj_vert.glsl", "shader/obj_frag.glsl");
+    Shader objShader("shader/obj_vert.glsl", "shader/diffuse_frag.glsl");
+    Shader stencilShader("shader/obj_vert.glsl", "shader/single_color_frag.glsl");
     float objOffset = 10;
 
     Model cube("shapes/cube.obj");
@@ -204,7 +211,6 @@ int main() {
     std::vector<Model> history;
 
     // Render Loop
-    glEnable(GL_DEPTH_TEST | GL_STENCIL_TEST);
     while(!glfwWindowShouldClose(window)) {
         float currentFrame = (float) glfwGetTime();
         deltaTime = currentFrame - lastFrame;
@@ -261,17 +267,27 @@ int main() {
 
         historyEmpty = history.size() == 0;
 
+        // Enable/Disable Stencil Testing
+        if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS & tKeyFirst == true) {
+            stencilTest = !stencilTest;
+        }
+        tKeyFirst = glfwGetKey(window, GLFW_KEY_T) == GLFW_RELEASE;
+
         // Rendering
         glClearColor(bg.r, bg.g, bg.b, bg.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilMask(0xFF);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_STENCIL_TEST);
 
         glm::mat4 view = cam.getViewMatrix();
         glm::mat4 proj = glm::perspective(glm::radians(cam.fov), (float) img_width / img_height, 0.1f, 100.0f);
         glm::mat4 model = glm::mat4(1.0);
+
+        // Object Render
+        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0xFF);
 
         objShader.use();
 
@@ -289,6 +305,33 @@ int main() {
             shapes[i].draw(objShader);
         }
 
+        // Outline Render
+        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+        glStencilMask(0x00);
+        glDisable(GL_DEPTH_TEST);
+
+        stencilShader.use();
+        
+        stencilShader.setVec4("singleColor", glm::vec4(0.1f, 0.4f, 0.2f, 1.f));
+
+        stencilShader.setMat4("view", view);
+        stencilShader.setMat4("proj", proj);
+
+        if (stencilTest) {
+            for (unsigned int i = 0; i != shapes.size(); i++) {
+                model = glm::translate(glm::mat4(1.f), shapes[i].position);
+                model = glm::scale(model, glm::vec3(1.05f));
+                
+                stencilShader.setMat4("model", model);
+
+                shapes[i].draw(objShader);
+            }
+        }
+
+        glStencilMask(0xFF);
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glEnable(GL_DEPTH_TEST);
+
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -297,6 +340,7 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, 0);
 
     objShader.clean();
+    stencilShader.clean();
 
     glfwTerminate();
     return 0;
