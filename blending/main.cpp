@@ -1,5 +1,8 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/ext/matrix_transform.hpp>
+#include <glm/ext/quaternion_trigonometric.hpp>
+#include <glm/fwd.hpp>
 #include <glm/glm.hpp>
 
 #include "stb_image.h"
@@ -30,19 +33,13 @@ bool firstMouse = true;
 
 // Key Press Data
 bool mouseLeftFirst = true;
-
 bool zKeyFirst = true;
 bool xKeyFirst = true;
-bool tKeyFirst = true;
-
 bool historyEmpty = true;
 
 // Frame Data
 float deltaTime = 0;
 float lastFrame = 0;
-
-// Rendering Data
-bool stencilTest = false;
 
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -159,46 +156,10 @@ int main() {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glViewport(0, 0, img_width, img_height);
 
-    // Load Texture
     stbi_set_flip_vertically_on_load(true);
 
-    unsigned int textureID;
-    glGenTextures(1, &textureID);
-
-    const char* path = "shader/container_diffuse.png";
-    int width, height, nrChannels;
-    unsigned char *data = stbi_load(path, &width, &height, &nrChannels, 0);
-    if (data) {
-        GLenum format = GL_FALSE;
-        switch (nrChannels) {
-            case 1:
-                format = GL_RED;
-                break;
-            case 3:
-                format = GL_RGB;
-                break;
-            case 4:
-                format = GL_RGBA;
-                break;
-        }
-
-        glBindTexture(GL_TEXTURE_2D, textureID);
-        glTexImage2D(GL_TEXTURE_2D, 0, (GLint) format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-        glGenerateMipmap(GL_TEXTURE_2D);
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    } else {
-        std::cout << "Failed to load texture at path: " << path << std::endl;
-    }
-    stbi_image_free(data);
-
     // Objects
-    Shader objShader("shader/obj_vert.glsl", "shader/diffuse_frag.glsl");
-    Shader stencilShader("shader/obj_vert.glsl", "shader/single_color_frag.glsl");
+    Shader objShader("shader/obj_vert.glsl", "shader/obj_frag.glsl");
     float objOffset = 10;
 
     Model cube("shapes/cube.obj");
@@ -211,7 +172,7 @@ int main() {
     std::vector<Model> history;
 
     // Render Loop
-    glEnable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
     while(!glfwWindowShouldClose(window)) {
         float currentFrame = (float) glfwGetTime();
         deltaTime = currentFrame - lastFrame;
@@ -222,6 +183,7 @@ int main() {
         // Placing Shapes
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && mouseLeftFirst == true) {
             Model newShape;
+
             if (shape == Shape::Cube) {
                 newShape = cube;
             } else if (shape == Shape::Sphere) {
@@ -230,11 +192,16 @@ int main() {
                 newShape = cylinder;
             } else if (shape == Shape::Plane) {
                 newShape = plane;
+
+                newShape.rotation = 90.f;
+                newShape.angle = glm::vec3(1.f, 0.f, 0.f);
             } else if (shape == Shape::Cone) {
                 newShape = cone;
             }
+
             newShape.position = glm::vec3(cam.position + (objOffset * cam.front));
             newShape.scale = 1.f;
+
             shapes.push_back(newShape);
 
             if (historyEmpty == false) {
@@ -268,32 +235,16 @@ int main() {
 
         historyEmpty = history.size() == 0;
 
-        // Enable/Disable Stencil Testing
-        if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS & tKeyFirst == true) {
-            stencilTest = !stencilTest;
-        }
-        tKeyFirst = glfwGetKey(window, GLFW_KEY_T) == GLFW_RELEASE;
-
         // Rendering
         glClearColor(bg.r, bg.g, bg.b, bg.a);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-        glEnable(GL_DEPTH_TEST);
-        glEnable(GL_STENCIL_TEST);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glm::mat4 view = cam.getViewMatrix();
         glm::mat4 proj = glm::perspective(glm::radians(cam.fov), (float) img_width / img_height, 0.1f, 100.0f);
         glm::mat4 model = glm::mat4(1.0);
 
-        // Object Render
-        glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glStencilMask(0xFF);
-
         objShader.use();
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, textureID);
         objShader.setInt("shapeTexture", 0);
 
         objShader.setMat4("view", view);
@@ -301,37 +252,12 @@ int main() {
 
         for (unsigned int i = 0; i != shapes.size(); i++) {
             model = glm::translate(glm::mat4(1.f), shapes[i].position);
+            model = glm::rotate(model, glm::radians(shapes[i].rotation), shapes[i].angle);
+
             objShader.setMat4("model", model);
 
             shapes[i].draw(objShader);
         }
-
-        // Outline Render
-        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
-        glStencilMask(0x00);
-        glDisable(GL_DEPTH_TEST);
-
-        stencilShader.use();
-        
-        stencilShader.setVec4("singleColor", glm::vec4(0.1f, 0.4f, 0.2f, 1.f));
-
-        stencilShader.setMat4("view", view);
-        stencilShader.setMat4("proj", proj);
-
-        if (stencilTest) {
-            for (unsigned int i = 0; i != shapes.size(); i++) {
-                model = glm::translate(glm::mat4(1.f), shapes[i].position);
-                model = glm::scale(model, glm::vec3(1.05f));
-                
-                stencilShader.setMat4("model", model);
-
-                shapes[i].draw(objShader);
-            }
-        }
-
-        glStencilMask(0xFF);
-        glStencilFunc(GL_ALWAYS, 1, 0xFF);
-        glEnable(GL_DEPTH_TEST);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -341,7 +267,6 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, 0);
 
     objShader.clean();
-    stencilShader.clean();
 
     glfwTerminate();
     return 0;
