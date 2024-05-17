@@ -88,7 +88,7 @@ Model::Model(std::vector<Mesh> meshes, glm::vec3 position, float scale, float ro
 unsigned int textureFromFile(std::string path, std::string dir) {
     unsigned int textureID;
     glGenTextures(1, &textureID);
-    std::string fullPath(path + '/' + dir);
+    std::string fullPath(dir + '/' + path);
 
     int width, height, nrChannels;
     unsigned char *data = stbi_load(fullPath.c_str(), &width, &height, &nrChannels, 0);

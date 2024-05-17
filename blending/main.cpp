@@ -77,7 +77,7 @@ void processInput(GLFWwindow *window) {
         mode = MovementType::RUNNING;
     }
 
-    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS) {
         mode = MovementType::WALKING;
     }
 
@@ -244,8 +244,6 @@ int main() {
         glm::mat4 model = glm::mat4(1.0);
 
         objShader.use();
-
-        objShader.setInt("shapeTexture", 0);
 
         objShader.setMat4("view", view);
         objShader.setMat4("proj", proj);
