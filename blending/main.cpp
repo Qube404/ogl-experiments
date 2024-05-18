@@ -1,3 +1,4 @@
+#include <map>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/ext/matrix_transform.hpp>
@@ -35,7 +36,6 @@ bool firstMouse = true;
 bool mouseLeftFirst = true;
 bool zKeyFirst = true;
 bool xKeyFirst = true;
-bool historyEmpty = true;
 
 // Frame Data
 float deltaTime = 0;
@@ -169,10 +169,15 @@ int main() {
     Model cone("shapes/cone.obj");
 
     std::vector<Model> shapes;
-    std::vector<Model> history;
+    std::map<float, Model> windows;
+
+    std::vector<Model> historyShapes;
+    std::map<float, Model> historyWindows;
 
     // Render Loop
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     while(!glfwWindowShouldClose(window)) {
         float currentFrame = (float) glfwGetTime();
         deltaTime = currentFrame - lastFrame;
@@ -202,38 +207,16 @@ int main() {
             newShape.position = glm::vec3(cam.position + (objOffset * cam.front));
             newShape.scale = 1.f;
 
-            shapes.push_back(newShape);
-
-            if (historyEmpty == false) {
-                history.clear();
+            if (shape == Shape::Plane) {
+                float dist = glm::length(newShape.position);
+                windows[dist] = newShape;
+            } else {
+                shapes.push_back(newShape);
             }
 
             mouseLeftFirst = false;
         }
         mouseLeftFirst = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE;
-
-        // Undo & Redo
-        if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS & zKeyFirst == true) {
-            if (shapes.size() != 0) {
-                history.push_back(shapes[shapes.size() - 1]);
-                shapes.pop_back();
-            }
-
-            zKeyFirst = false;
-        }
-        zKeyFirst = glfwGetKey(window, GLFW_KEY_Z) == GLFW_RELEASE;
-
-        if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS & xKeyFirst == true) {
-            if (history.size() != 0) {
-                shapes.push_back(history[history.size() - 1]);
-                history.pop_back();
-            }
-
-            xKeyFirst = false;
-        }
-        xKeyFirst = glfwGetKey(window, GLFW_KEY_X) == GLFW_RELEASE;
-
-        historyEmpty = history.size() == 0;
 
         // Rendering
         glClearColor(bg.r, bg.g, bg.b, bg.a);
@@ -253,8 +236,17 @@ int main() {
             model = glm::rotate(model, glm::radians(shapes[i].rotation), shapes[i].angle);
 
             objShader.setMat4("model", model);
-
             shapes[i].draw(objShader);
+        }
+
+        for (std::map<float, Model>::reverse_iterator it = windows.rbegin(); it != windows.rend(); it++) {
+            Model window = it->second;
+
+            model = glm::translate(glm::mat4(1.f), window.position);
+            model = glm::rotate(model, glm::radians(window.rotation), window.angle);
+
+            objShader.setMat4("model", model);
+            window.draw(objShader);
         }
 
         glfwSwapBuffers(window);
