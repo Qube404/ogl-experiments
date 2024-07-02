@@ -10,12 +10,18 @@
 const unsigned int img_width = 1920; const unsigned int img_height = 1080;
 Camera cam(glm::vec3(0, 0, 0), glm::vec3(0, 1, 0), -90, 0, 4, 8, 16, 0.065f, 90, 120);
 
+// Colors
+glm::vec4 editorBackground = glm::vec4(0.156863, 0.160784, 0.211765, 1);
+glm::vec4 black = glm::vec4(0.0, 0.0, 0.0, 1.0);
+
 // Background Color
-glm::vec4 bg = glm::vec4(0.0, 0.0, 0.0, 1.0);
+glm::vec4 bg = editorBackground;
 
 // Player Data
 float playerHeight = 7;
 float playerSize = 1;
+
+short int shape = Shape::Cube;
 
 // Mouse Data
 float lastX = img_width / 2.0;
@@ -95,6 +101,27 @@ void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
         cam.processKeyboard(CameraMovement::UP, mode, deltaTime);
     }
+
+    // Weapon Selection
+    if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS) {
+        shape = Shape::Cube;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS) {
+        shape = Shape::Sphere;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS) {
+        shape = Shape::Cylinder;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS) {
+        shape = Shape::Plane;
+    }
+    
+    if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS) {
+        shape = Shape::Cone;
+    }
 }
 
 int main() {
@@ -128,74 +155,18 @@ int main() {
 
     stbi_set_flip_vertically_on_load(true);
 
-    // Load models
-    Model planet("models/planet/planet.obj");
-    Model rock("models/rock/rock.obj");
+    // Objects
+    Shader objShader("shader/obj_vert.glsl", "shader/obj_frag.glsl");
+    float objOffset = 10;
 
-    Shader planetShader("shader/planet_vert.glsl", "shader/planet_frag.glsl");
-    Shader rockShader("shader/rock_vert.glsl", "shader/rock_frag.glsl");
+    Model cube("shapes/cube.obj");
+    Model sphere("shapes/sphere.obj");
+    Model cylinder("shapes/cylinder.obj");
+    Model plane("shapes/plane.obj");
+    Model cone("shapes/cone.obj");
 
-    unsigned int amount = 500000;
-    glm::mat4 *modelMatrices = new glm::mat4[amount];
-    srand(glfwGetTime());
-
-    float radius = 50.0f;
-    float offset = 2.5f;
-
-    for (unsigned int i = 0; i != amount; i++) {
-        glm::mat4 model = glm::mat4(1.0f);
-
-        float angle = (float) i / (float) amount * 360.0f;
-        float displacement = 0;
-
-        displacement = (rand() % (int) (2 * offset * 100)) / 100.0f - offset;
-        float x = sin(angle) * radius + displacement;
-
-        displacement = (rand() % (int) (2 * offset * 100)) / 100.0f - offset;
-        float y = displacement * 0.4f;
-
-        displacement = (rand() % (int) (2 * offset * 100)) / 100.0f - offset;
-        float z = cos(angle) * radius + displacement;
-
-        model = glm::translate(model, glm::vec3(x, y, z));
-
-        float scale = (rand() % 20) / 100.0f + 0.05;
-        model = glm::scale(model, glm::vec3(scale));
-
-        float rotAngle = (rand() % 360);
-        model = glm::rotate(model, rotAngle, glm::vec3(0.4f, 0.6f, 0.8f));
-
-        modelMatrices[i] = model;
-    }
-
-    unsigned int instancedBuffer;
-    glGenBuffers(1, &instancedBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, instancedBuffer);
-    glBufferData(GL_ARRAY_BUFFER, amount * sizeof(glm::mat4), &modelMatrices[0], GL_STATIC_DRAW);
-
-    for (unsigned int i = 0; i != rock.meshes.size(); i++) {
-        unsigned int VAO = rock.meshes[i].VAO;
-        glBindVertexArray(VAO);
-
-        glEnableVertexAttribArray(3);
-        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4), (void*) (0 * sizeof(glm::vec4)));
-
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4), (void*) (1 * sizeof(glm::vec4)));
-
-        glEnableVertexAttribArray(5);
-        glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4), (void*) (2 * sizeof(glm::vec4)));
-
-        glEnableVertexAttribArray(6);
-        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(glm::vec4), (void*) (3 * sizeof(glm::vec4)));
-
-        glVertexAttribDivisor(3, 1);
-        glVertexAttribDivisor(4, 1);
-        glVertexAttribDivisor(5, 1);
-        glVertexAttribDivisor(6, 1);
-
-        glBindVertexArray(0);
-    }
+    std::vector<Model> shapes;
+    std::vector<Model> history;
 
     // Render Loop
     glEnable(GL_DEPTH_TEST);
@@ -206,39 +177,73 @@ int main() {
 
         processInput(window);
 
+        // Placing Shapes
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && mouseLeftFirst == true) {
+            Model newShape;
+            if (shape == Shape::Cube) {
+                newShape = cube;
+            } else if (shape == Shape::Sphere) {
+                newShape = sphere;
+            } else if (shape == Shape::Cylinder) {
+                newShape = cylinder;
+            } else if (shape == Shape::Plane) {
+                newShape = plane;
+            } else if (shape == Shape::Cone) {
+                newShape = cone;
+            }
+            newShape.position = glm::vec3(cam.position + (objOffset * cam.front));
+            newShape.scale = 1.f;
+            shapes.push_back(newShape);
+
+            if (historyEmpty == false) {
+                history.clear();
+            }
+
+            mouseLeftFirst = false;
+        }
+        mouseLeftFirst = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE;
+
+        // Undo & Redo
+        if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS & zKeyFirst == true) {
+            if (shapes.size() != 0) {
+                history.push_back(shapes[shapes.size() - 1]);
+                shapes.pop_back();
+            }
+
+            zKeyFirst = false;
+        }
+        zKeyFirst = glfwGetKey(window, GLFW_KEY_Z) == GLFW_RELEASE;
+
+        if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS & xKeyFirst == true) {
+            if (history.size() != 0) {
+                shapes.push_back(history[history.size() - 1]);
+                history.pop_back();
+            }
+
+            xKeyFirst = false;
+        }
+        xKeyFirst = glfwGetKey(window, GLFW_KEY_X) == GLFW_RELEASE;
+
+        historyEmpty = history.size() == 0;
+
         // Rendering
         glClearColor(bg.r, bg.g, bg.b, bg.a);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glm::mat4 view = cam.getViewMatrix();
-        glm::mat4 proj = glm::perspective(glm::radians(cam.fov), (float) img_width / img_height, 0.1f, 200.0f);
+        glm::mat4 proj = glm::perspective(glm::radians(cam.fov), (float) img_width / img_height, 0.1f, 100.0f);
         glm::mat4 model = glm::mat4(1.0);
 
-        planetShader.use();
+        objShader.use();
 
-        planetShader.setMat4("view", view);
-        planetShader.setMat4("proj", proj);
+        objShader.setMat4("view", view);
+        objShader.setMat4("proj", proj);
 
-        model = glm::translate(model, glm::vec3(0.0f, -3.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(4.0f, 4.0f, 4.0f));
+        for (unsigned int i = 0; i != shapes.size(); i++) {
+            model = glm::translate(glm::mat4(1.f), shapes[i].position);
+            objShader.setMat4("model", model);
 
-        planetShader.setMat4("model", model);
-
-        planet.draw(planetShader);
-
-        rockShader.use();
-
-        rockShader.setMat4("view", view);
-        rockShader.setMat4("proj", proj);
-
-        rockShader.setInt("texture1", 0);
-        glBindTexture(GL_TEXTURE_2D, rock.meshes[0].textures[0].id);
-
-        for (unsigned int i = 0; i != rock.meshes.size(); i++) {
-            glBindVertexArray(rock.meshes[i].VAO);
-            glDrawElementsInstanced(
-                GL_TRIANGLES, rock.meshes[i].indices.size(), GL_UNSIGNED_INT, 0, amount
-            );
+            shapes[i].draw(objShader);
         }
 
         glfwSwapBuffers(window);
@@ -248,7 +253,7 @@ int main() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    // CLEAN UP
+    objShader.clean();
 
     glfwTerminate();
     return 0;

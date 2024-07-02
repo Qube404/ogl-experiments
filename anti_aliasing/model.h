@@ -32,8 +32,6 @@ public:
 
 class Mesh {
 public:
-    unsigned int VAO, VBO, EBO;
-
     std::vector<Vertex> vertices;
     std::vector<unsigned int> indices;
     std::vector<Texture> textures;
@@ -41,14 +39,16 @@ public:
     Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, std::vector<Texture> textures);
 
     void draw(Shader &shader);
+
 private:
+    unsigned int VAO, VBO, EBO;
+
     void setupMesh();
 };
 
 
 class Model {
 public:
-    std::vector<Mesh> meshes;
     glm::vec3 position;
     float scale;
 
@@ -57,4 +57,6 @@ public:
     Model(std::string path, glm::vec3 position = glm::vec3(0.f), float scale = 0.f);
 
     void draw(Shader &shader);
+private:
+    std::vector<Mesh> meshes;
 };
