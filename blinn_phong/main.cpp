@@ -38,6 +38,9 @@ bool historyEmpty = true;
 float deltaTime = 0;
 float lastFrame = 0;
 
+// Light Data
+glm::vec3 lightPos(-6, 6, 7);
+
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, width, height);
 }
@@ -129,7 +132,6 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SAMPLES, 4);
 
     GLFWwindow* window = glfwCreateWindow(img_width, img_height, "QubeGL", NULL, NULL);
 
@@ -156,28 +158,11 @@ int main() {
 
     stbi_set_flip_vertically_on_load(true);
 
-    // FrameBuffer
-    unsigned int fbo;
-    glGenFramebuffers(1, &fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-    unsigned int frameTex;
-    glGenTextures(1, &frameTex);
-    glBindTexture(GL_TEXTURE_2D, frameTex);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1920, 1080, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frameTex, 0);
-
-
-
     // Objects
     Shader objShader("shader/obj_vert.glsl", "shader/obj_frag.glsl");
     float objOffset = 10;
+
+    Shader lightShader("shader/light_vert.glsl", "shader/light_frag.glsl");
 
     Model cube("shapes/cube.obj");
     Model sphere("shapes/sphere.obj");
@@ -190,7 +175,6 @@ int main() {
 
     // Render Loop
     glEnable(GL_DEPTH_TEST);
-    glEnable(GL_MULTISAMPLE);
     while(!glfwWindowShouldClose(window)) {
         float currentFrame = (float) glfwGetTime();
         deltaTime = currentFrame - lastFrame;
@@ -255,10 +239,27 @@ int main() {
         glm::mat4 proj = glm::perspective(glm::radians(cam.fov), (float) img_width / img_height, 0.1f, 100.0f);
         glm::mat4 model = glm::mat4(1.0);
 
+        // Light Render
+        lightShader.use();
+        
+        lightShader.setMat4("view", view);
+        lightShader.setMat4("proj", proj);
+
+        model = glm::translate(model, lightPos);
+        model = glm::scale(model, glm::vec3(0.25));
+        lightShader.setMat4("model", model);
+
+        cube.draw(lightShader);
+
+        // Object Render
+        model = glm::mat4(1.0);
+
         objShader.use();
 
         objShader.setMat4("view", view);
         objShader.setMat4("proj", proj);
+        objShader.setVec3("lightPos", lightPos);
+        objShader.setVec3("viewPos", cam.position);
 
         for (unsigned int i = 0; i != shapes.size(); i++) {
             model = glm::translate(glm::mat4(1.f), shapes[i].position);
@@ -275,8 +276,6 @@ int main() {
     glBindTexture(GL_TEXTURE_2D, 0);
 
     objShader.clean();
-
-    glDeleteFramebuffers(1, &fbo);
 
     glfwTerminate();
     return 0;
