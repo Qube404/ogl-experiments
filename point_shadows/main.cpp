@@ -1,3 +1,5 @@
+#include <array>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -22,7 +24,7 @@ float deltaTime = 0;
 float lastFrame = 0;
 
 // Light Data
-glm::vec3 lightPos(-10.0f, 12.0f, 2.0f);
+glm::vec3 lightPos(0.0f, 4.0f, 0.0f);
 
 void framebufferSizeCallback(GLFWwindow *window, int width, int height) {
     glViewport(0, 0, width, height);
@@ -176,43 +178,41 @@ int main() {
 
     stbi_set_flip_vertically_on_load(true);
 
-    // Shadow Maps
+    // Point Shadow Maps
     unsigned int depthMapFBO;
     glGenFramebuffers(1, &depthMapFBO);
 
+    unsigned int depthCubemap;
+    glGenTextures(1, &depthCubemap);
+
     const unsigned int SHADOW_WIDTH = 4096, SHADOW_HEIGHT = 4096;
+    glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
 
-    unsigned int depthMap;
-    glGenTextures(1, &depthMap);
-    glBindTexture(GL_TEXTURE_2D, depthMap);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    for (unsigned int i = 0; i != 6; i++) {
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, 
+                     GL_DEPTH_COMPONENT, SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+    }
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-
-    float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+    glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthCubemap, 0);
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
-
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        std::cout << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
-    } 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     // Objects & Shaders
     Shader objShader("shader/obj_vert.glsl", "shader/obj_frag.glsl");
-    Shader depthShader("shader/depth_vert.glsl", "shader/depth_frag.glsl");
+    Shader depthShader("shader/depth_vert.glsl", "shader/depth_geom.glsl", "shader/depth_frag.glsl");
     Shader debugShader("shader/debug_vert.glsl", "shader/debug_frag.glsl");
     Shader lightShader("shader/light_vert.glsl", "shader/light_frag.glsl");
 
-    Model scene("shapes/test_scene.obj");
+    Model scene("shapes/point_map_scene.obj");
     Model cube("shapes/cube.obj");
 
     // Render Loop
@@ -234,21 +234,37 @@ int main() {
         glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
         glClear(GL_DEPTH_BUFFER_BIT);
-        glCullFace(GL_FRONT);
         
-        float nearPlane = 1.0f, farPlane = 30.0f;
+        float near = 1.0f, far = 25.0f, aspect = (float) SHADOW_WIDTH / SHADOW_HEIGHT;
         
-        glm::mat4 lightProj = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, nearPlane, farPlane);
-        glm::mat4 lightView = glm::lookAt(lightPos, glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        glm::mat4 lightSpaceMatrix = lightProj * lightView;
+        glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), aspect, near, far);
+
+        std::array<glm::mat4, 6> shadowTransforms({
+            shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)),
+            shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0)),
+            shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0)),
+            shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0)),
+            shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0)),
+            shadowProj * glm::lookAt(lightPos, lightPos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0))
+        });
+
 
         depthShader.use();
-        depthShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
         depthShader.setMat4("model", model);
+
+        depthShader.setMat4("shadowMatrices[0]", shadowTransforms[0]);
+        depthShader.setMat4("shadowMatrices[1]", shadowTransforms[1]);
+        depthShader.setMat4("shadowMatrices[2]", shadowTransforms[2]);
+        depthShader.setMat4("shadowMatrices[3]", shadowTransforms[3]);
+        depthShader.setMat4("shadowMatrices[4]", shadowTransforms[4]);
+        depthShader.setMat4("shadowMatrices[5]", shadowTransforms[5]);
+
+        depthShader.setVec3("lightPos", lightPos);
+        depthShader.setFloat("farPlane", far);
 
         scene.draw(depthShader);
 
-        // Object Render //
+        // Object Render
         glViewport(0, 0, IMG_WIDTH, IMG_HEIGHT);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -263,13 +279,13 @@ int main() {
         objShader.setVec3("lightPos", lightPos);
         objShader.setVec3("viewPos", cam.position);
 
-        objShader.setMat4("lightSpaceMatrix", lightSpaceMatrix);
+        objShader.setFloat("farPlane", far);
 
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, depthMap);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, depthCubemap);
 
         scene.draw(objShader);
-        // Object Render //
+        // Object Render
 
         lightRender(lightShader, cube, model, view, proj);
         //debugRender(debugShader, depthMap, nearPlane, farPlane);
