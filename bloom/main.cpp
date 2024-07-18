@@ -298,7 +298,7 @@ int main() {
 
         // Ping Pong
         bool horizontal = true, firstIter = true;
-        int amount = 10;
+        int amount = 5;
 
         blurShader.use();
         
