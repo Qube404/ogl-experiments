@@ -410,8 +410,8 @@ int main() {
         quadShader.setVec3("light.pos", lightPos);
         quadShader.setVec3("light.color", glm::vec3(0.6, 0.2, 0.7));
 
-        quadShader.setFloat("light.linear", 1.0f);
-        quadShader.setFloat("light.quadratic", 0.7f);
+        quadShader.setFloat("light.linear", 0.09f);
+        quadShader.setFloat("light.quadratic", 0.032f);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, gPos);
